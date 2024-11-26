@@ -13,8 +13,8 @@ module.exports = async (req, res) => {
     console.log("Fetching accounts for asset ID:", assetId);
 
     // Fetch all keys for the asset
-    const keys = await api.query.assets.account.keys(assetId);
-
+    const keys = await api.query.assets.account.keys();
+    const accountIds = keys.map((key) => key.args[0].toHuman());
     const accounts = await Promise.all(
       keys.map(async (key) => {
         const accountId = key.args[1].toHuman(); 
