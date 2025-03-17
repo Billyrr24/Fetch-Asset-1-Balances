@@ -11,16 +11,16 @@ module.exports = async (req, res) => {
     const assetIds = [0, 1, 2];
     console.log("Fetching accounts for asset IDs:", assetIds);
 
-    // Fetch all keys for the assets
-    const keys = await api.query.assets.account.keys();
     const accountsData = [];
 
     for (const assetId of assetIds) {
       console.log(`Fetching accounts for asset ID: ${assetId}`);
-      
+
+      // Fetch keys specific to the assetId
+      const keys = await api.query.assets.account.keys(assetId);
       const assetAccounts = await Promise.all(
         keys.map(async (key) => {
-          const accountId = key.args[1].toHuman();
+          const accountId = key.args[1].toHuman(); 
           const accountInfo = await api.query.assets.account(assetId, accountId);
 
           if (accountInfo.isSome) {
@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
           }
         })
       );
-      
+
       accountsData.push(...assetAccounts);
     }
 
