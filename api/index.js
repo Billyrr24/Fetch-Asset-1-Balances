@@ -7,40 +7,45 @@ module.exports = async (req, res) => {
 
     console.log("Connected to Substrate!");
 
-    // Define the asset ID (u128)
-    const assetId = 1;
+    // Define the asset IDs to query
+    const assetIds = [0, 1, 2];
+    console.log("Fetching accounts for asset IDs:", assetIds);
 
-    console.log("Fetching accounts for asset ID:", assetId);
-
-    // Fetch all keys for the asset
+    // Fetch all keys for the assets
     const keys = await api.query.assets.account.keys();
-    const accountIds = keys.map((key) => key.args[0].toHuman());
-    const accounts = await Promise.all(
-      keys.map(async (key) => {
-        const accountId = key.args[1].toHuman(); 
-        const accountInfo = await api.query.assets.account(assetId, accountId);
+    const accountsData = [];
 
-        if (accountInfo.isSome) {
-          const accountDetails = accountInfo.unwrap();
+    for (const assetId of assetIds) {
+      console.log(`Fetching accounts for asset ID: ${assetId}`);
+      
+      const assetAccounts = await Promise.all(
+        keys.map(async (key) => {
+          const accountId = key.args[1].toHuman();
+          const accountInfo = await api.query.assets.account(assetId, accountId);
 
-          return {
-            assetId,
-            accountId,
-            balance: accountDetails.balance.toString(),
-            status: accountDetails.status.toHuman(),
-          };
-        } else {
-          return {
-            assetId,
-            accountId,
-            balance: "0",
-            status: "None",
-          };
-        }
-      })
-    );
+          if (accountInfo.isSome) {
+            const accountDetails = accountInfo.unwrap();
+            return {
+              assetId,
+              accountId,
+              balance: accountDetails.balance.toString(),
+              status: accountDetails.status.toHuman(),
+            };
+          } else {
+            return {
+              assetId,
+              accountId,
+              balance: "0",
+              status: "None",
+            };
+          }
+        })
+      );
+      
+      accountsData.push(...assetAccounts);
+    }
 
-    res.status(200).json({ accounts });
+    res.status(200).json({ accounts: accountsData });
   } catch (error) {
     console.error("Error:", error.message);
     res.status(500).json({ error: error.message });
