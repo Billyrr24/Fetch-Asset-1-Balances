@@ -3,7 +3,7 @@
 // All @polkadot/api usage is lazy-loaded so pages that never mount the
 // wallet widget never pay for it.
 
-export const VITREUS_RPC = "wss://rpc-mainnet.vtrs.io";
+export const VITREUS_RPC = "wss://rpc-mainnet.vtrs.io:443";
 
 // Confirmed live on mainnet via system_properties (2026-08-14).
 export const VITREUS_FALLBACK_DECIMALS = 18;
