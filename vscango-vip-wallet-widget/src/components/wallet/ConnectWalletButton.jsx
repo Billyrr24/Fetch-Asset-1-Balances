@@ -5,7 +5,7 @@
 // the shared vitreusWalletStore singleton directly.
 
 import React, { useEffect, useRef, useState } from "react";
-import { HEADER_BUTTON_STYLE, Z } from "../../../SiteFrame.jsx"; // adjust path to your actual SiteFrame.jsx location
+import { HEADER_BUTTON_STYLE, Z } from "../SiteFrame.jsx";
 import {
   subscribeWallet,
   connectExtension,

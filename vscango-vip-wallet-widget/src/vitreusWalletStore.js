@@ -20,9 +20,9 @@ import {
   VITREUS_GENESIS_HASH,
 } from "./vitreusChain.js";
 
-// TODO: replace with your own WalletConnect Cloud project id.
-// Get a free one at https://cloud.reown.com (formerly cloud.walletconnect.com).
-export const WALLETCONNECT_PROJECT_ID = "REPLACE_WITH_YOUR_WALLETCONNECT_PROJECT_ID";
+// From cloud.reown.com (formerly cloud.walletconnect.com). Not secret —
+// safe to ship in client-side code, same as any other WalletConnect dApp.
+export const WALLETCONNECT_PROJECT_ID = "5d0eeb125924ce8472868790da4669b1";
 
 const LAST_SOURCE_KEY = "vscan_wallet_last_source_v1";
 
