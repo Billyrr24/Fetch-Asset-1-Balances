@@ -26,6 +26,21 @@ export const WALLETCONNECT_PROJECT_ID = "5d0eeb125924ce8472868790da4669b1";
 
 const LAST_SOURCE_KEY = "vscan_wallet_last_source_v1";
 
+// vApp isn't listed in WalletConnect's official Explorer, so it has to be
+// registered manually so the modal shows a direct "Connect with vApp"
+// deep-link button on mobile instead of a QR code to scan with a camera.
+// Both links pulled directly from vApp's own AndroidManifest.xml
+// <intent-filter> entries (confirmed 2026-08-15), and confirmed live in use
+// by marketplace.vtrs.io and dao.vtrs.io's own bundled JS.
+const VAPP_WALLET_ENTRY = {
+  id: "vapp-vitreus",
+  name: "vApp",
+  links: {
+    native: "vtrs://app/mobile",
+    universal: "https://deeplink-dev.pages.dev/mobile",
+  },
+};
+
 const listeners = new Set();
 
 let state = {
@@ -132,6 +147,9 @@ export async function connectWalletConnect() {
     const modal = new WalletConnectModal({
       projectId: WALLETCONNECT_PROJECT_ID,
       chains: [VITREUS_WC_CHAIN_ID],
+      mobileWallets: [VAPP_WALLET_ENTRY],
+      walletImages: { "vapp-vitreus": "https://vitreus.io/favicon.ico" },
+      enableExplorer: false,
     });
 
     const { uri, approval } = await provider.client.connect({
