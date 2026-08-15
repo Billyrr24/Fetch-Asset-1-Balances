@@ -32,6 +32,16 @@
 //    (https://deeplink-dev.pages.dev/mobile, native vtrs://app/mobile)
 //    with "?callName=<callName>" appended, to bring the app to the
 //    foreground.
+//  [CONFIRMED] The socket handshake requires an "api-key" HTTP header
+//    (value from vApp's own .env, API_KEY_WALLET_CONNECT — not secret,
+//    every dApp integrating with this backend uses the same one) — found
+//    the exact call site: `extraHeaders: {"api-key": <key>}`. Custom
+//    headers only reach the server on the polling transport (browsers
+//    don't allow custom headers on raw WebSocket upgrades), so polling
+//    must be allowed to complete the handshake before any upgrade.
+//  [CONFIRMED] The connection also sends `query: {session_id, mobile_socket}`
+//    — session_id is a *persistent* client id (unrelated to the per-pairing
+//    sessionId used for the QR), and mobile_socket is false for a website.
 //
 // Security model: identical in spirit to the extension path — vApp holds
 // the key and signs internally. This code only ever sends a named action +
@@ -39,6 +49,26 @@
 // receives back a pass/fail result; it never sees or handles a private key.
 
 const WALLET_BACKEND_URL = "wss://wallet-prod-be.vtrs.io";
+
+// From vApp's own .env (API_KEY_WALLET_CONNECT) — not secret, it's shipped
+// in vApp's client-side config and every dApp integrating with this
+// backend uses the same value.
+const WALLET_BACKEND_API_KEY = "72f97304-574a-4c2a-9d5f-0cbb20c5e8a7";
+
+const SOCKET_SESSION_ID_KEY = "vscan_vapp_socket_session_id";
+
+function getPersistedSocketSessionId() {
+  try {
+    let id = localStorage.getItem(SOCKET_SESSION_ID_KEY);
+    if (!id) {
+      id = generateRandomId();
+      localStorage.setItem(SOCKET_SESSION_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return generateRandomId();
+  }
+}
 
 const DAPP_META = {
   name: "vScan",
@@ -85,7 +115,16 @@ async function getSocket() {
   if (socket && socket.connected) return socket;
   const { io } = await import("socket.io-client");
   socket = io(WALLET_BACKEND_URL, {
-    transports: ["websocket", "polling"],
+    // Polling must run first so the "api-key" header actually reaches the
+    // server — browsers strip custom headers from raw WebSocket upgrades,
+    // so a websocket-first connection would silently drop it and the
+    // server would see no key at all.
+    transports: ["polling", "websocket"],
+    extraHeaders: { "api-key": WALLET_BACKEND_API_KEY },
+    query: {
+      session_id: getPersistedSocketSessionId(),
+      mobile_socket: false,
+    },
     reconnection: true,
   });
   return socket;
