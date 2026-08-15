@@ -15,7 +15,17 @@
 //    `query: {session_id, mobile_socket}` pair. session_id here is a
 //    *persistent per-browser* id, unrelated to the pairing session id
 //    below.
-//  [CONFIRMED] Client emits "initSession" with dApp metadata.
+//  [CONFIRMED] Client emits "initSession" with a `web3Settings`-shaped
+//    payload — traced through the *actual* prop chain (useSocketService ->
+//    useWsConnection -> ConnectWalletBtn's `web3Settings` prop) to the
+//    literal object literal marketplace.vtrs.io passes it:
+//    { chainInfo: [<EIP-3085-style Vitreus chain descriptor>],
+//      webSessionInfo: { activeChain: "vitreus", supportedChains: ["vitreus"],
+//                         autoSwitch: false, autoConnect: true },
+//      dAppMeta: {...} }
+//    An earlier version of this file sent only {dAppMeta} and the server
+//    rejected it outright with "object has wrong interface" — this is the
+//    fix, read directly out of their bundle, not guessed.
 //  [CONFIRMED] The server does NOT hand back a session id synchronously —
 //    almost everything the server sends arrives through a single generic
 //    "message" event, shaped like {action: "<name>", data: {...}}, routed
@@ -59,7 +69,10 @@
 //    redirects to vApp's own deep link
 //    (https://deeplink-dev.pages.dev/mobile, native vtrs://app/mobile)
 //    with "?callName=<callName>" appended, to bring the app to the
-//    foreground.
+//    foreground. For the *pairing* deep link specifically (not signing),
+//    the param is "?session=<sessionId>" — confirmed from the same
+//    ConnectWalletBtn component, not "?sessionId=" as an earlier version
+//    of this file guessed.
 //
 // Security model: identical in spirit to the extension path — vApp holds
 // the key and signs internally. This code only ever sends a named action +
@@ -80,6 +93,47 @@ const DAPP_META = {
   url: "https://vscango.com",
   description: "Vitreus VIP/VIPP rewards, wallet balances, and explorer",
   logoUrl: "https://vscango.com/favicon.png",
+};
+
+// [CONFIRMED] The standard EVM chain-descriptor object (chainlist.org /
+// EIP-3085 shape) that marketplace.vtrs.io and dao.vtrs.io both use for
+// Vitreus, found verbatim as `VitreusChain` in their bundled JS.
+const VITREUS_CHAIN_DESCRIPTOR = {
+  name: "Vitreus",
+  chain: "ETH",
+  icon: {
+    url: "https://i.seadn.io/gcs/files/f782e6e31691feb96741245b6376b98a.png?auto=format&dpr=1&w=256",
+    height: 512,
+    width: 512,
+    format: "png",
+  },
+  rpc: ["https://rpc-mainnet.vtrs.io"],
+  features: [{ name: "EIP1559" }, { name: "EIP155" }],
+  redFlags: [],
+  nativeCurrency: { name: "Vitreus", symbol: "VTRS", decimals: 18 },
+  shortName: "vtrs",
+  chainId: 1943,
+  networkId: 1943,
+  slip44: 60,
+  explorers: [{ name: "Vitreus Explorer", url: "https://explorer.vtrs.io/", standard: "EIP3091" }],
+  testnet: false,
+  slug: "vitreus",
+};
+
+// [CONFIRMED] This is the *actual* initSession payload — found via the
+// full destructuring chain useSocketService -> useWsConnection ->
+// ConnectWalletBtn's `web3Settings` prop, with the literal object literal
+// passed to it in marketplace.vtrs.io's own source. Nothing here was
+// guessed; every field below was read directly out of their bundle.
+const INIT_SESSION_PAYLOAD = {
+  chainInfo: [VITREUS_CHAIN_DESCRIPTOR],
+  webSessionInfo: {
+    activeChain: "vitreus",
+    supportedChains: ["vitreus"],
+    autoSwitch: false,
+    autoConnect: true,
+  },
+  dAppMeta: DAPP_META,
 };
 
 // [CONFIRMED] both from vApp's AndroidManifest.xml <intent-filter> entries,
@@ -209,7 +263,7 @@ export async function startVappPairing() {
     return () => s.off("error", handler);
   })();
 
-  s.emit("initSession", JSON.stringify({ dAppMeta: DAPP_META }));
+  s.emit("initSession", JSON.stringify(INIT_SESSION_PAYLOAD));
 
   const getQrValue = () =>
     new Promise((resolve, reject) => {
@@ -258,7 +312,10 @@ export async function startVappPairing() {
   return {
     getQrValue,
     waitForConnection,
-    openDeepLink: () => openVappDeepLink({ sessionId: currentPairingSessionId || "" }),
+    // [CONFIRMED] param name is "session", not "sessionId" — verified from
+    // the literal deep-link construction in the paired ConnectWalletBtn
+    // component: `${deepLinks.ios/android}?session=${sessionId}`.
+    openDeepLink: () => openVappDeepLink({ session: currentPairingSessionId || "" }),
   };
 }
 
