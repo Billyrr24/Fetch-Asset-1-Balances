@@ -9,11 +9,128 @@ import { HEADER_BUTTON_STYLE, Z } from "../SiteFrame.jsx";
 import {
   subscribeWallet,
   connectExtension,
-  connectWalletConnect,
+  connectVapp,
   disconnectWallet,
   tryRestoreWalletSession,
 } from "../../vitreusWalletStore.js";
 import { truncateAddress } from "../../vitreusChain.js";
+import { isMobileBrowser } from "../../vitreusVappSession.js";
+
+function VappQrModal({ qrValue, onOpenDeepLink, onClose }) {
+  const [qrDataUrl, setQrDataUrl] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const QRCode = await import("qrcode");
+      const dataUrl = await QRCode.toDataURL(qrValue, {
+        margin: 1,
+        width: 280,
+        color: { dark: "#0b0b0b", light: "#ffffff" },
+      });
+      if (!cancelled) setQrDataUrl(dataUrl);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [qrValue]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: Z.MODAL,
+        background: "rgba(0,0,0,0.72)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 16,
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 360,
+          borderRadius: 16,
+          background: "linear-gradient(180deg, rgba(20,20,20,0.98), rgba(8,8,8,0.98))",
+          border: "1px solid rgba(255,255,255,0.14)",
+          boxShadow: "0 18px 50px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06) inset",
+          padding: 20,
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 4 }}>Connect with vApp</div>
+        <div style={{ color: "#9fb0ab", fontSize: 12, marginBottom: 14 }}>
+          Scan with vApp's connect scanner, or use the button below on this device.
+        </div>
+
+        <div
+          style={{
+            width: 280,
+            height: 280,
+            maxWidth: "100%",
+            margin: "0 auto 14px",
+            borderRadius: 12,
+            background: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+          }}
+        >
+          {qrDataUrl ? (
+            <img src={qrDataUrl} alt="vApp connect QR code" width={280} height={280} />
+          ) : (
+            <div style={{ color: "#888", fontSize: 12 }}>Generating QR…</div>
+          )}
+        </div>
+
+        {isMobileBrowser() ? (
+          <button
+            type="button"
+            className="btnPop"
+            onClick={onOpenDeepLink}
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid rgba(109,242,178,0.55)",
+              background: "rgba(109,242,178,0.14)",
+              color: "#fff",
+              fontWeight: 900,
+              marginBottom: 10,
+            }}
+          >
+            Open vApp
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          className="btnPop"
+          onClick={onClose}
+          style={{
+            width: "100%",
+            padding: "9px 14px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.20)",
+            background: "rgba(0,0,0,0.25)",
+            color: "#fff",
+            fontWeight: 900,
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function ConnectWalletButton() {
   const [wallet, setWallet] = useState(null);
@@ -43,12 +160,13 @@ export default function ConnectWalletButton() {
 
   const connected = wallet.status === "connected" && wallet.address;
   const connecting = wallet.status === "connecting";
+  const showVappModal = connecting && !!wallet.vappQrValue;
 
   async function handleConnect(method) {
     setPickerOpen(false);
     try {
       if (method === "extension") await connectExtension();
-      if (method === "walletconnect") await connectWalletConnect();
+      if (method === "vapp") await connectVapp();
     } catch {
       // error is already surfaced via wallet.error from the store
     }
@@ -137,11 +255,11 @@ export default function ConnectWalletButton() {
             type="button"
             className="btnPop"
             style={{ ...dropdownItemStyle, marginBottom: 0 }}
-            onClick={() => handleConnect("walletconnect")}
+            onClick={() => handleConnect("vapp")}
           >
-            WalletConnect (QR Code)
+            Connect with vApp
             <div style={{ color: "#9fb0ab", fontWeight: 600, fontSize: 11, marginTop: 2 }}>
-              Scan with a mobile wallet — no extension needed
+              Scan a QR code — no extension needed
             </div>
           </button>
           {wallet.error ? (
@@ -158,7 +276,7 @@ export default function ConnectWalletButton() {
             {copyLabel}
           </button>
           <div style={{ color: "#9fb0ab", fontSize: 11, fontWeight: 700, padding: "0 6px 8px" }}>
-            Connected via {wallet.source === "extension" ? "browser extension" : "WalletConnect"}
+            Connected via {wallet.source === "extension" ? "browser extension" : "vApp"}
           </div>
           <button
             type="button"
@@ -172,6 +290,14 @@ export default function ConnectWalletButton() {
             Disconnect
           </button>
         </div>
+      ) : null}
+
+      {showVappModal ? (
+        <VappQrModal
+          qrValue={wallet.vappQrValue}
+          onOpenDeepLink={() => wallet.vappOpenDeepLink?.()}
+          onClose={() => disconnectWallet()}
+        />
       ) : null}
     </div>
   );

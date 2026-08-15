@@ -5,8 +5,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import SiteFrame, { FOOTER_HEIGHT } from "./components/SiteFrame.jsx"; // adjust path if needed
-import { subscribeWallet } from "./vitreusWalletStore.js";
-import { getActiveSigner } from "./vitreusWalletStore.js";
+import { subscribeWallet, getActiveSigner, requestVappActionCall } from "./vitreusWalletStore.js";
 import {
   getClaimableRewards,
   submitClaim,
@@ -134,6 +133,30 @@ export default function VipClaim() {
   async function handleClaim(year) {
     if (!address) return;
     setClaimingYear(year);
+
+    if (wallet.source === "vapp") {
+      // vApp builds, signs, and submits the extrinsic itself — we only
+      // send the request and wait for its result over the socket.
+      setClaimResults((r) => ({
+        ...r,
+        [year]: { status: "pending", message: "Check vApp to approve the claim…" },
+      }));
+      try {
+        const result = await requestVappActionCall({ callName: "claimRewards", data: { year } });
+        recordClaim(address, { year, txHash: result?.txHash || result?.hash || "vApp-submitted" });
+        setHistory(getClaimHistory(address));
+        setClaimResults((r) => ({ ...r, [year]: { status: "success", message: "Claimed ✓" } }));
+        setClaimable((list) => list.filter((item) => item.year !== year));
+      } catch (e) {
+        setClaimResults((r) => ({ ...r, [year]: { status: "error", message: e?.message || "Claim failed." } }));
+      } finally {
+        setClaimingYear(null);
+      }
+      return;
+    }
+
+    // Browser-extension path: we build the extrinsic and ask the extension
+    // to sign it directly.
     setClaimResults((r) => ({ ...r, [year]: { status: "pending", message: "Waiting for signature…" } }));
     try {
       const signer = await getActiveSigner(address);
