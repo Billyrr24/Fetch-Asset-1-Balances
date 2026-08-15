@@ -20,7 +20,7 @@
 //    useWsConnection -> ConnectWalletBtn's `web3Settings` prop) to the
 //    literal object literal marketplace.vtrs.io passes it:
 //    { chainInfo: [<EIP-3085-style Vitreus chain descriptor>],
-//      webSessionInfo: { activeChain: "vitreus", supportedChains: ["vitreus"],
+//      webSessionInfo: { activeChain: "vitreus", supportedChains: [<same chain descriptor>],
 //                         autoSwitch: false, autoConnect: true },
 //      dAppMeta: {...} }
 //    An earlier version of this file sent only {dAppMeta} and the server
@@ -129,7 +129,13 @@ const INIT_SESSION_PAYLOAD = {
   chainInfo: [VITREUS_CHAIN_DESCRIPTOR],
   webSessionInfo: {
     activeChain: "vitreus",
-    supportedChains: ["vitreus"],
+    // NOTE: this is the full chain descriptor object, same as chainInfo —
+    // NOT the string slug. Confirmed from the literal source:
+    // `supportedChains:[Xc.vitreus.chain]` in both marketplace.vtrs.io and
+    // dao.vtrs.io's bundled JS. An earlier version of this file wrongly
+    // used the string here, which caused the server to crash trying to
+    // do `"chain" in "vitreus"`.
+    supportedChains: [VITREUS_CHAIN_DESCRIPTOR],
     autoSwitch: false,
     autoConnect: true,
   },
