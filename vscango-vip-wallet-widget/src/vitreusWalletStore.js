@@ -100,8 +100,13 @@ async function getExtensionSigner(address) {
 export async function connectVapp() {
   setState({ status: "connecting", error: null, vappQrValue: null });
   try {
-    const { qrValue, waitForConnection, openDeepLink } = await startVappPairing();
-    setState({ vappQrValue: qrValue, vappOpenDeepLink: openDeepLink });
+    const { getQrValue, waitForConnection, openDeepLink } = await startVappPairing();
+    setState({ vappOpenDeepLink: openDeepLink });
+
+    // The server assigns the pairing session id asynchronously — the QR
+    // isn't renderable until that arrives.
+    const qrValue = await getQrValue();
+    setState({ vappQrValue: qrValue });
 
     const { address } = await waitForConnection();
 
