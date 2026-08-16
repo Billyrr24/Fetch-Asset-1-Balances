@@ -143,6 +143,109 @@ export async function getClaimableRewards(address) {
   return { claimable, decimals, symbol };
 }
 
+// ---- VIP / VIPP current status + permanent-lockout check ----
+//
+// Every claim above (getClaimableRewards) is about *past, finalized*
+// years. This section answers a different question: is this account
+// currently a VIP/VIPP member right now, and — critically for VIPP —
+// have they permanently lost eligibility by letting their stake fall
+// below their NFT's threshold at some point? All of this is confirmed
+// live against mainnet (2026-08-16), including finding real accounts
+// with the permanent-lockout flag set, not just read from source:
+//  - privileges.vipMembers(address) / vippMembers(address) — current
+//    membership + points + VIPP threshold (sum of activeVippThreshold).
+//  - nacManaging.usersNft(address) -> Option<(itemId, nacLevel)>.
+//  - nfts.attribute(0, itemId, {Pallet: null}, key) for two keys on the
+//    NAC NFT (collection 0): 0x000002 = originally claimed balance
+//    (LE-encoded u128 in the raw attribute bytes), 0x000003 = presence
+//    means permanently locked out of VIPP forever (147 real accounts
+//    have this set on mainnet right now).
+
+const NAC_COLLECTION_ID = 0;
+const NAC_ATTRIBUTE_NAMESPACE = { Pallet: null };
+const CLAIM_AMOUNT_ATTRIBUTE_KEY = new Uint8Array([0, 0, 2]);
+const VIPP_STATUS_EXIST_ATTRIBUTE_KEY = new Uint8Array([0, 0, 3]);
+
+function decodeAttributeBalanceLE(valueCodec) {
+  const hex = (valueCodec.toHex ? valueCodec.toHex() : valueCodec.toString()).replace(/^0x/, "");
+  let value = 0n;
+  for (let i = hex.length - 2; i >= 0; i -= 2) {
+    value = (value << 8n) | BigInt(parseInt(hex.slice(i, i + 2), 16));
+  }
+  return value;
+}
+
+/**
+ * Returns this account's current VIP/VIPP membership status, independent
+ * of any specific claim year. Use this to show "you're currently a VIP
+ * member" / "you've permanently lost VIPP eligibility" etc.
+ */
+export async function getVipVippStatus(address) {
+  const api = await getVitreusApi();
+  const decimals = api.registry.chainDecimals?.[0] ?? VITREUS_FALLBACK_DECIMALS;
+  const symbol = api.registry.chainTokens?.[0] ?? VITREUS_FALLBACK_SYMBOL;
+
+  const [vipMemberOpt, vippMemberOpt, usersNftOpt] = await Promise.all([
+    api.query.privileges.vipMembers(address),
+    api.query.privileges.vippMembers(address),
+    api.query.nacManaging.usersNft(address),
+  ]);
+
+  const vipInfo = unwrapOption(vipMemberOpt);
+  const vip = vipInfo
+    ? {
+        isMember: true,
+        activeStake: toBigIntSafe(vipInfo.activeStake),
+        points: toBigIntSafe(vipInfo.points),
+        taxType: vipInfo.taxType?.toString?.() ?? null,
+      }
+    : { isMember: false, activeStake: 0n, points: 0n, taxType: null };
+
+  const vippInfo = unwrapOption(vippMemberOpt);
+  const vipp = vippInfo
+    ? {
+        isMember: true,
+        points: toBigIntSafe(vippInfo.points),
+        threshold: (vippInfo.activeVippThreshold || []).reduce(
+          (sum, pair) => sum + toBigIntSafe(pair[1]),
+          0n
+        ),
+      }
+    : { isMember: false, points: 0n, threshold: 0n };
+
+  let nac = {
+    hasNft: false,
+    itemId: null,
+    level: null,
+    claimedAmount: null,
+    permanentlyLockedOut: false,
+  };
+
+  const nftInfo = unwrapOption(usersNftOpt);
+  if (nftInfo) {
+    const itemId = Number(nftInfo[0].toString());
+    const level = Number(nftInfo[1].toString());
+
+    const [claimOpt, lockedOpt] = await Promise.all([
+      api.query.nfts.attribute(NAC_COLLECTION_ID, itemId, NAC_ATTRIBUTE_NAMESPACE, CLAIM_AMOUNT_ATTRIBUTE_KEY),
+      api.query.nfts.attribute(NAC_COLLECTION_ID, itemId, NAC_ATTRIBUTE_NAMESPACE, VIPP_STATUS_EXIST_ATTRIBUTE_KEY),
+    ]);
+
+    const claimEntry = unwrapOption(claimOpt);
+    const lockedEntry = unwrapOption(lockedOpt);
+
+    nac = {
+      hasNft: true,
+      itemId,
+      level,
+      claimedAmount: claimEntry ? decodeAttributeBalanceLE(claimEntry[0]) : null,
+      permanentlyLockedOut: !!lockedEntry,
+    };
+  }
+
+  return { vip, vipp, nac, decimals, symbol };
+}
+
 export async function buildClaimTx(year) {
   const api = await getVitreusApi();
   return api.tx.privileges.claimRewards(year);

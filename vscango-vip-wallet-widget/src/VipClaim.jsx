@@ -8,6 +8,7 @@ import SiteFrame, { FOOTER_HEIGHT } from "./components/SiteFrame.jsx"; // adjust
 import { subscribeWallet, getActiveSigner, requestVappActionCall } from "./vitreusWalletStore.js";
 import {
   getClaimableRewards,
+  getVipVippStatus,
   submitClaim,
   formatTokenAmount,
   truncateAddress,
@@ -28,6 +29,85 @@ function Card({ children, style }) {
     >
       {children}
     </div>
+  );
+}
+
+function StatusCard({ status, symbol, decimals }) {
+  const { vip, vipp, nac } = status;
+
+  const boxStyle = {
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.10)",
+    padding: "10px 12px",
+  };
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ fontWeight: 950, marginBottom: 10 }}>VIP / VIPP Status</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={boxStyle}>
+          <div style={{ color: "#cfcfcf", fontSize: 11, fontWeight: 900, marginBottom: 4 }}>VIP</div>
+          {vip.isMember ? (
+            <>
+              <div style={{ color: "#bef2e0", fontWeight: 900 }}>Active member</div>
+              <div style={{ color: "#9fb0ab", fontSize: 11, marginTop: 4 }}>
+                Active stake: {formatTokenAmount(vip.activeStake, decimals)} {symbol}
+              </div>
+              <div style={{ color: "#9fb0ab", fontSize: 11 }}>
+                Points accrued this year: {vip.points.toString()}
+              </div>
+            </>
+          ) : (
+            <div style={{ color: "#cfcfcf", fontSize: 13 }}>
+              Not enrolled — anyone actively staking (as a validator or cooperator) can join, no
+              minimum amount required.
+            </div>
+          )}
+        </div>
+
+        <div style={boxStyle}>
+          <div style={{ color: "#cfcfcf", fontSize: 11, fontWeight: 900, marginBottom: 4 }}>VIPP</div>
+          {nac.permanentlyLockedOut ? (
+            <>
+              <div style={{ color: "#ffb4b4", fontWeight: 900 }}>Permanently locked out</div>
+              <div style={{ color: "#9fb0ab", fontSize: 11, marginTop: 4 }}>
+                This wallet's active stake dropped below its NFT's threshold at some point.
+                Per protocol rules, VIPP eligibility is lost forever once that happens — it
+                cannot be re-entered with this wallet.
+              </div>
+            </>
+          ) : vipp.isMember ? (
+            <>
+              <div style={{ color: "#bef2e0", fontWeight: 900 }}>Active member</div>
+              <div style={{ color: "#9fb0ab", fontSize: 11, marginTop: 4 }}>
+                Threshold: {formatTokenAmount(vipp.threshold, decimals)} {symbol}
+              </div>
+              <div style={{ color: "#9fb0ab", fontSize: 11 }}>
+                Points accrued this year: {vipp.points.toString()}
+              </div>
+              <div style={{ color: "#ffcf8a", fontSize: 11, marginTop: 4 }}>
+                Keep your active stake at or above the threshold — dropping below it risks
+                permanent loss of VIPP for this wallet.
+              </div>
+            </>
+          ) : (
+            <div style={{ color: "#cfcfcf", fontSize: 13 }}>
+              {nac.hasNft
+                ? "Not currently VIPP-enrolled."
+                : "No NAC NFT found for this wallet — VIPP was only granted to early mainnet-launch claims."}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {nac.hasNft && nac.claimedAmount != null ? (
+        <div style={{ marginTop: 10, fontSize: 11, color: "#9fb0ab" }}>
+          Original mainnet-launch claim: {formatTokenAmount(nac.claimedAmount, decimals)} {symbol} · NAC level{" "}
+          {nac.level}
+        </div>
+      ) : null}
+    </Card>
   );
 }
 
@@ -102,6 +182,7 @@ export default function VipClaim() {
   const [claimingYear, setClaimingYear] = useState(null);
   const [claimResults, setClaimResults] = useState({}); // { [year]: { status, message } }
   const [history, setHistory] = useState([]);
+  const [status, setStatus] = useState(null);
 
   useEffect(() => subscribeWallet(setWallet), []);
 
@@ -115,9 +196,13 @@ export default function VipClaim() {
     setLoading(true);
     setError("");
     try {
-      const { claimable: list, decimals, symbol } = await getClaimableRewards(address);
+      const [{ claimable: list, decimals, symbol }, statusResult] = await Promise.all([
+        getClaimableRewards(address),
+        getVipVippStatus(address),
+      ]);
       setClaimable(list);
       setTokenMeta({ decimals, symbol });
+      setStatus(statusResult);
       setHistory(getClaimHistory(address));
     } catch (e) {
       setError(e?.message || "Failed to load rewards from chain.");
@@ -209,6 +294,8 @@ export default function VipClaim() {
                 Refresh
               </button>
             </Card>
+
+            {status ? <StatusCard status={status} symbol={tokenMeta.symbol} decimals={tokenMeta.decimals} /> : null}
 
             {loading ? <div style={{ color: "#cfcfcf", padding: "10px 0" }}>Checking on-chain rewards…</div> : null}
 
