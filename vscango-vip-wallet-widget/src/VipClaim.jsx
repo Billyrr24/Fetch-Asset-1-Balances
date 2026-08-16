@@ -11,6 +11,7 @@ import {
   getVipVippStatus,
   submitClaim,
   formatTokenAmount,
+  formatWholeTokenAmount,
   truncateAddress,
   getClaimHistory,
   recordClaim,
@@ -52,10 +53,10 @@ function StatusCard({ status, symbol, decimals }) {
             <>
               <div style={{ color: "#bef2e0", fontWeight: 900 }}>Active member</div>
               <div style={{ color: "#9fb0ab", fontSize: 11, marginTop: 4 }}>
-                Active stake: {formatTokenAmount(vip.activeStake, decimals)} {symbol}
+                Active stake: {formatWholeTokenAmount(vip.activeStake, decimals)} {symbol}
               </div>
               <div style={{ color: "#9fb0ab", fontSize: 11 }}>
-                Points accrued this year: {vip.points.toString()}
+                Points accrued this year: {formatWholeTokenAmount(vip.points, decimals)}
               </div>
             </>
           ) : (
@@ -70,7 +71,7 @@ function StatusCard({ status, symbol, decimals }) {
           <div style={{ color: "#cfcfcf", fontSize: 11, fontWeight: 900, marginBottom: 4 }}>VIPP</div>
           {nac.permanentlyLockedOut ? (
             <>
-              <div style={{ color: "#ffb4b4", fontWeight: 900 }}>Permanently locked out</div>
+              <div style={{ color: "#ffb4b4", fontWeight: 900 }}>Not eligible — permanently locked out</div>
               <div style={{ color: "#9fb0ab", fontSize: 11, marginTop: 4 }}>
                 This wallet's active stake dropped below its NFT's threshold at some point.
                 Per protocol rules, VIPP eligibility is lost forever once that happens — it
@@ -81,10 +82,10 @@ function StatusCard({ status, symbol, decimals }) {
             <>
               <div style={{ color: "#bef2e0", fontWeight: 900 }}>Active member</div>
               <div style={{ color: "#9fb0ab", fontSize: 11, marginTop: 4 }}>
-                Threshold: {formatTokenAmount(vipp.threshold, decimals)} {symbol}
+                Threshold: {formatWholeTokenAmount(vipp.threshold, decimals)} {symbol}
               </div>
               <div style={{ color: "#9fb0ab", fontSize: 11 }}>
-                Points accrued this year: {vipp.points.toString()}
+                Points accrued this year: {formatWholeTokenAmount(vipp.points, decimals)}
               </div>
               <div style={{ color: "#ffcf8a", fontSize: 11, marginTop: 4 }}>
                 Keep your active stake at or above the threshold — dropping below it risks
@@ -92,18 +93,21 @@ function StatusCard({ status, symbol, decimals }) {
               </div>
             </>
           ) : (
-            <div style={{ color: "#cfcfcf", fontSize: 13 }}>
-              {nac.hasNft
-                ? "Not currently VIPP-enrolled."
-                : "No NAC NFT found for this wallet — VIPP was only granted to early mainnet-launch claims."}
-            </div>
+            <>
+              <div style={{ color: "#cfcfcf", fontWeight: 900 }}>Not eligible</div>
+              <div style={{ color: "#9fb0ab", fontSize: 11, marginTop: 4 }}>
+                {nac.hasNft
+                  ? "This wallet's NAC NFT never qualified for VIPP status."
+                  : "VIPP was only granted to early mainnet-launch claims — this wallet has no NAC NFT."}
+              </div>
+            </>
           )}
         </div>
       </div>
 
       {nac.hasNft && nac.claimedAmount != null ? (
         <div style={{ marginTop: 10, fontSize: 11, color: "#9fb0ab" }}>
-          Original mainnet-launch claim: {formatTokenAmount(nac.claimedAmount, decimals)} {symbol} · NAC level{" "}
+          Original mainnet-launch claim: {formatWholeTokenAmount(nac.claimedAmount, decimals)} {symbol} · NAC level{" "}
           {nac.level}
         </div>
       ) : null}
@@ -126,14 +130,14 @@ function YearClaimCard({ item, symbol, decimals, onClaim, claiming, claimResult 
           <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", padding: "8px 10px" }}>
             <div style={{ color: "#cfcfcf", fontSize: 11, fontWeight: 900 }}>VIP</div>
             <div style={{ fontWeight: 900 }}>{formatTokenAmount(item.estVipReward, decimals)} {symbol}</div>
-            <div style={{ color: "#9fb0ab", fontSize: 11 }}>{item.myVipPoints.toString()} points</div>
+            <div style={{ color: "#9fb0ab", fontSize: 11 }}>{formatWholeTokenAmount(item.myVipPoints, decimals)} points</div>
           </div>
         ) : null}
         {item.hasVipp ? (
           <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", padding: "8px 10px" }}>
             <div style={{ color: "#cfcfcf", fontSize: 11, fontWeight: 900 }}>VIPP</div>
             <div style={{ fontWeight: 900 }}>{formatTokenAmount(item.estVippReward, decimals)} {symbol}</div>
-            <div style={{ color: "#9fb0ab", fontSize: 11 }}>{item.myVippPoints.toString()} points</div>
+            <div style={{ color: "#9fb0ab", fontSize: 11 }}>{formatWholeTokenAmount(item.myVippPoints, decimals)} points</div>
           </div>
         ) : null}
       </div>

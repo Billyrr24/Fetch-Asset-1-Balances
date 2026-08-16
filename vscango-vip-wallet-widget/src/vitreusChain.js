@@ -59,6 +59,26 @@ export function formatTokenAmount(rawValue, decimals = VITREUS_FALLBACK_DECIMALS
   return fracStr ? `${wholeStr}.${fracStr}` : wholeStr;
 }
 
+/**
+ * Same 18-decimal scaling as formatTokenAmount, but rounds to the nearest
+ * whole unit and drops the fraction entirely — used for points and other
+ * values where a fractional VTRS-equivalent isn't meaningful to show.
+ */
+export function formatWholeTokenAmount(rawValue, decimals = VITREUS_FALLBACK_DECIMALS) {
+  let value;
+  try {
+    value = typeof rawValue === "bigint" ? rawValue : BigInt(rawValue?.toString?.() ?? rawValue ?? 0);
+  } catch {
+    return "0";
+  }
+  if (value < 0n) value = 0n;
+
+  const base = 10n ** BigInt(decimals);
+  const rounded = (value + base / 2n) / base; // round-half-up via BigInt math
+
+  return rounded.toLocaleString("en-US");
+}
+
 function unwrapOption(codec) {
   if (codec && typeof codec.isSome === "boolean") {
     return codec.isSome ? codec.unwrap() : null;
