@@ -67,7 +67,7 @@ function VappQrModal({ qrValue, onOpenDeepLink, onClose }) {
       >
         <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 4 }}>Connect with vApp</div>
         <div style={{ color: "#9fb0ab", fontSize: 12, marginBottom: 14 }}>
-          Scan with vApp's connect scanner, or use the button below on this device.
+          Scan with vApp's connect scanner.
         </div>
 
         <div
