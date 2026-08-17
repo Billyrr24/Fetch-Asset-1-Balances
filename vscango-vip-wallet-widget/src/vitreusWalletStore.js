@@ -109,6 +109,12 @@ export async function connectVapp() {
 
     if (isMobileBrowser()) {
       // Same-device connection: no QR to scan, go straight into the app.
+      // A short delay here matches what happens naturally on marketplace.vtrs.io
+      // (QR renders, user reads it, then taps a link) - firing the deep link the
+      // instant the session id arrives appears to reach vApp before the pairing
+      // session is fully settled server-side, leaving vApp stuck on a spinner
+      // instead of showing its connect screen.
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       openDeepLink();
     } else {
       setState({ vappQrValue: qrValue });
