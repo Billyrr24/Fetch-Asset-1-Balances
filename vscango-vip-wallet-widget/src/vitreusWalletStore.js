@@ -22,7 +22,7 @@
 // implemented in vitreusVappSession.js. See that file for the full writeup
 // of what's confirmed vs. inferred about the protocol.
 
-import { startVappPairing, requestActionCallSignature, disconnectVapp } from "./vitreusVappSession.js";
+import { startVappPairing, requestActionCallSignature, disconnectVapp, isMobileBrowser } from "./vitreusVappSession.js";
 
 const LAST_SOURCE_KEY = "vscan_wallet_last_source_v1";
 
@@ -104,9 +104,15 @@ export async function connectVapp() {
     setState({ vappOpenDeepLink: openDeepLink });
 
     // The server assigns the pairing session id asynchronously — the QR
-    // isn't renderable until that arrives.
+    // isn't renderable (and the deep link isn't valid) until that arrives.
     const qrValue = await getQrValue();
-    setState({ vappQrValue: qrValue });
+
+    if (isMobileBrowser()) {
+      // Same-device connection: no QR to scan, go straight into the app.
+      openDeepLink();
+    } else {
+      setState({ vappQrValue: qrValue });
+    }
 
     const { address } = await waitForConnection();
 

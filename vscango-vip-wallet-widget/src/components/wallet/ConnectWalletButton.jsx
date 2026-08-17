@@ -210,19 +210,34 @@ export default function ConnectWalletButton() {
     marginBottom: 6,
   };
 
+  const mobile = isMobileBrowser();
+
   return (
     <div ref={rootRef} style={{ position: "relative" }}>
       {!connected ? (
-        <button
-          type="button"
-          className="btnPop"
-          style={{ ...HEADER_BUTTON_STYLE, opacity: connecting ? 0.7 : 1 }}
-          disabled={connecting}
-          onClick={() => setPickerOpen((v) => !v)}
-          title="Connect a Substrate wallet to view and claim VIP/VIPP rewards"
-        >
-          {connecting ? "Connecting…" : "Connect Wallet"}
-        </button>
+        mobile ? (
+          <button
+            type="button"
+            className="btnPop"
+            style={{ ...HEADER_BUTTON_STYLE, opacity: connecting ? 0.7 : 1 }}
+            disabled={connecting}
+            onClick={() => handleConnect("vapp")}
+            title="Connect with the Vitreus vApp"
+          >
+            {connecting ? "Connecting…" : "Connect with vApp"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btnPop"
+            style={{ ...HEADER_BUTTON_STYLE, opacity: connecting ? 0.7 : 1 }}
+            disabled={connecting}
+            onClick={() => setPickerOpen((v) => !v)}
+            title="Connect a Substrate wallet to view and claim VIP/VIPP rewards"
+          >
+            {connecting ? "Connecting…" : "Connect Wallet"}
+          </button>
+        )
       ) : (
         <button
           type="button"
@@ -262,11 +277,20 @@ export default function ConnectWalletButton() {
               Scan a QR code — no extension needed
             </div>
           </button>
-          {wallet.error ? (
-            <div style={{ color: "#ffb4b4", fontSize: 11, fontWeight: 700, padding: "8px 6px 2px" }}>
-              {wallet.error}
-            </div>
-          ) : null}
+        </div>
+      ) : null}
+
+      {!connected && wallet.error ? (
+        <div
+          style={{
+            marginTop: 6,
+            maxWidth: 260,
+            color: "#ffb4b4",
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+        >
+          {wallet.error}
         </div>
       ) : null}
 
